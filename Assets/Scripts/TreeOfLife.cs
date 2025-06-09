@@ -5,9 +5,6 @@ using UnityEngine;
 [RequireComponent(typeof(SequencerNote))]
 public class TreeOfLife : MonoBehaviour
 {
-    [SerializeField, Range(0f, 1f), Tooltip("Chance to spawn a fruit when the note is played")]
-    float _fruitSpawnChance = 0.3f;
-
     private SequencerNote _sequencerNote;
 
     private void Awake()
@@ -15,27 +12,31 @@ public class TreeOfLife : MonoBehaviour
         _sequencerNote = GetComponent<SequencerNote>();
     }
 
-    private void OnEnable()
+    public Fruit SpawnFruit()
     {
-        _sequencerNote.OnNotePlayed += GenerateFruit;
-    }
+        var availableFruits = GetComponentsInChildren<Fruit>(true).Where(f => !f.gameObject.activeSelf).ToArray();
 
-    private void OnDisable()
-    {
-        _sequencerNote.OnNotePlayed -= GenerateFruit;
-    }
-
-    void GenerateFruit()
-    {
-        var chance = Random.Range(0f, 1f);
-        if (chance < _fruitSpawnChance) {
-            var availableFruits = GetComponentsInChildren<Fruit>(true).Where(f => !f.gameObject.activeSelf).ToArray();
-
-            if (availableFruits.Length > 0) {
-                // Activate a random inactive fruit
-                var fruit = availableFruits[Random.Range(0, availableFruits.Length)];
-                fruit.gameObject.SetActive(true);
-            }
+        if (availableFruits.Length > 0) {
+            // Activate a random inactive fruit
+            var fruit = availableFruits[Random.Range(0, availableFruits.Length)];
+            fruit.gameObject.SetActive(true);
+            EventsManager.OnFruitSpawned?.Invoke(fruit);
+            return fruit;
         }
+        return null;
+    }
+
+    void TryGenerateAnimal(Transform targetFruit)
+    {
+        //var chance = Random.Range(0f, 1f);
+        //if (chance < _animalSpawnChance) {
+        //    var availableAnimals = GetComponentsInChildren<AnimalBehaviour>(true).Where(a => !a.gameObject.activeSelf).ToArray();
+        //    if (availableAnimals.Length > 0) {
+        //        // Activate a random inactive animal
+        //        var animal = availableAnimals[Random.Range(0, availableAnimals.Length)];
+        //        animal.gameObject.SetActive(true);
+        //        animal._target = targetFruit;
+        //    }
+        //}
     }
 }

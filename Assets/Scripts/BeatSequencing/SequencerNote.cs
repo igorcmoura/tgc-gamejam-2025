@@ -7,6 +7,7 @@ public class SequencerNote : MonoBehaviour
     [SerializeField] int _scaleDegree; // 0-11 for chromatic scale
     [Range(0f, 1f)]
     [SerializeField] float _volume = 1f;
+    [SerializeField] bool _randomizeVolume = true;
 
     public System.Action OnNotePlayed;
 
@@ -40,7 +41,9 @@ public class SequencerNote : MonoBehaviour
             _audioSource = gameObject.AddComponent<AudioSource>();
         }
         ScaleDegree = Random.Range(0, 12); // Random initial scale degree
-        Volume = Random.Range(0, 1f); // Random initial volume
+        if (_randomizeVolume) {
+            Volume = Random.Range(0f, 1f);
+        }
     }
 
     public void PlayScheduled(float pitch, AudioClip noteClip, double time)

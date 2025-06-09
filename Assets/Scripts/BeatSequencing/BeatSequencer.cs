@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 public enum ScaleMode
@@ -15,8 +16,7 @@ public enum ScaleMode
 public class BeatSequencer : MonoBehaviour
 {
     private static BeatSequencer _instance;
-
-    public static BeatSequencer Instance => _instance != null ? _instance : throw new InvalidOperationException("BeatSequencer instance is not initialized.");
+    public static BeatSequencer Instance => _instance;
 
     [SerializeField] NoteSettings _noteSettings;
     [SerializeField] float _bpm = 120f;
@@ -26,11 +26,10 @@ public class BeatSequencer : MonoBehaviour
     [Header("Scale Settings")]
     [SerializeField] ScaleMode _mode = ScaleMode.Ionian;
     [SerializeField] int _baseNoteMidi = 57; // A3 = MIDI 57
-    [SerializeField] bool _randomizeModeChange = false;
 
-    private int _currentStep = 0;
+    private int _currentBeat = 0;
+    private int _currentSegment = 0;
     private double _nextEventTime;
-    private int _segmentsUntilModeChange = 0; // Steps until the next mode change, if randomization is enabled
 
     // Intervals for major and minor scales in semitones
     private static readonly int[] Ionian = { 0, 2, 4, 5, 7, 9, 11 };
@@ -40,6 +39,10 @@ public class BeatSequencer : MonoBehaviour
     private static readonly int[] Mixolydian = { 0, 2, 4, 5, 7, 9, 10 };
     private static readonly int[] Aeolian = { 0, 2, 3, 5, 7, 8, 10 };
     private static readonly int[] Locrian = { 0, 1, 3, 5, 6, 8, 10 };
+
+    public int BeastsPerSegment => _beatsPerSegment;
+    public int CurrentBeat => _currentBeat;
+    public int CurrentSegment => _currentSegment;
 
     private void Awake()
     {
@@ -54,7 +57,6 @@ public class BeatSequencer : MonoBehaviour
     private void Start()
     {
         _nextEventTime = AudioSettings.dspTime + 2f; // Start 2 seconds in the future
-        _segmentsUntilModeChange = 4; // Default to 4 segments before changing mode
     }
 
     private void Update()
@@ -62,35 +64,34 @@ public class BeatSequencer : MonoBehaviour
         var time = AudioSettings.dspTime;
 
         if (time + 1f > _nextEventTime) {
-            if (_currentStep == 0 && _randomizeModeChange) {
-                Debug.Log("BEAT");
-                if (_segmentsUntilModeChange <= 0) {
-                    // Randomly change mode after a certain number of steps
-                    _mode = (ScaleMode)UnityEngine.Random.Range(0, Enum.GetValues(typeof(ScaleMode)).Length);
-                    _segmentsUntilModeChange = UnityEngine.Random.Range(0, 3) * 2; // Randomize next change
-                } else {
-                    _segmentsUntilModeChange--;
-                }
-            }
+            PlayCurrentBeat();
 
-            PlayCurrentStep();
-            _currentStep = (_currentStep + 1) % _beatsPerSegment;
+            _currentBeat = (_currentBeat + 1) % _beatsPerSegment;
+            if (_currentBeat == 0) { _currentSegment++; }
             _nextEventTime += 60f / _bpm;
         }
     }
 
-    private void PlayCurrentStep()
+    private void PlayCurrentBeat()
     {
-        if (_currentStep >= _sequence.Length) {
+        StartCoroutine(ScheduleOnBeatEvent(_nextEventTime - AudioSettings.dspTime, _currentSegment, _currentBeat));
+
+        if (_currentBeat >= _sequence.Length) {
             return; // Prevent out of bounds access
         }
 
-        var step = _sequence[_currentStep];
-        if (step.IsEnabled && _noteSettings != null) {
-            float pitch = GetPitchForScaleDegree(step.ScaleDegree);
+        var beat = _sequence[_currentBeat];
+        if (beat.IsEnabled && _noteSettings != null) {
+            float pitch = GetPitchForScaleDegree(beat.ScaleDegree);
             double scheduleTime = GetScheduleTime(pitch);
-            step.PlayScheduled(pitch, _noteSettings.NoteClip, scheduleTime);
+            beat.PlayScheduled(pitch, _noteSettings.NoteClip, scheduleTime);
         }
+    }
+
+    private IEnumerator ScheduleOnBeatEvent(double delay, int currentSegment, int currentBeat)
+    {
+        yield return new WaitForSeconds((float)delay);
+        EventsManager.OnBeat?.Invoke(currentSegment, currentBeat);
     }
 
     private float GetPitchForScaleDegree(int degree)

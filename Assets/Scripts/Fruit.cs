@@ -69,6 +69,7 @@ public class Fruit : MonoBehaviour
     void Drop()
     {
         _isFalling = true;
+        EventsManager.OnFruitDropped?.Invoke(this);
         StartCoroutine(FallCoroutine());
     }
 
